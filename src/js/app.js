@@ -1412,10 +1412,6 @@ const App = () => {
         .filter(Boolean)
         .sort();
       setServers(serverList);
-
-      if (data.items.length > 0) {
-        setSelectedItem(data.items[0]);
-      }
     } catch (err) {
       setError("Error al cargar los artículos: " + err.message);
     } finally {
@@ -1631,6 +1627,12 @@ const App = () => {
                                     className="bg-white dark:bg-[#1a2f38] text-gray-900 dark:text-white"
                                   >
                                     Tier 5
+                                  </option>
+                                  <option
+                                    value="6"
+                                    className="bg-white dark:bg-[#1a2f38] text-gray-900 dark:text-white"
+                                  >
+                                    Tier 6
                                   </option>
                                 </select>
                               </div>
