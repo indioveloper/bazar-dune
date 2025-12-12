@@ -10,7 +10,7 @@ module.exports = {
   output: {
     // filename: "bundle.[contenthash].js", // Output filename with cache-busting
     filename: "bundle.js",
-    path: path.resolve(__dirname, "dist"),
+    path: path.resolve(__dirname, "public"),
   },
   mode: "production", // For minimized JS and CSS
   module: {
@@ -55,7 +55,7 @@ module.exports = {
     // }),
   ],
   devServer: {
-    static: path.resolve(__dirname, "dist"), // Serve the dist directory
+    static: path.resolve(__dirname, "public"), // Serve the dist directory
     open: false, // Automatically open the browser
     allowedHosts: ["localhost"],
   },
