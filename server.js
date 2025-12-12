@@ -19,14 +19,15 @@ app.use('/uploads', express.static('uploads'));
 
 // Configurar autenticación con Google Sheets
 // Leer configuración de las credenciales serializadas si existe (deployment)
+let auth;
 if (process.env.GCP_CREDENTIALS_JSON) {
-  const auth = new google.auth.GoogleAuth({
+  auth = new google.auth.GoogleAuth({
     credentials: JSON.parse(process.env.GCP_CREDENTIALS_JSON),
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
 // Leer el archivo de credenciales en caso contrario (local dev)
 } else {
-  const auth = new google.auth.GoogleAuth({
+  auth = new google.auth.GoogleAuth({
     keyFile: 'credentials.json', // Archivo de credenciales de servicio
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
