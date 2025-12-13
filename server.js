@@ -746,6 +746,54 @@ app.get(
   }
 );
 
+// Obtener bandeja de entrada (mensajes dirigidos al usuario)
+app.get('/api/messages/inbox', authMiddleware, async (req, res) => {
+  try {
+    let messages = await readSheet(SHEETS.MESSAGES);
+
+    // Filtrar mensajes donde 'to' es el usuario actual
+    messages = messages.filter(m => m.to === req.user.id);
+
+    const users = await readSheet(SHEETS.USERS);
+
+    const enriched = messages.map(msg => {
+      const fromUser = users.find(u => u.id === msg.from);
+      return {
+        ...msg,
+        read: msg.read === 'true',
+        from: fromUser ? { id: fromUser.id, username: fromUser.username, avatar: fromUser.avatar } : null
+      };
+    });
+
+    res.json({ messages: enriched, count: enriched.length });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Obtener mensajes enviados
+app.get('/api/messages/sent', authMiddleware, async (req, res) => {
+  try {
+    let messages = await readSheet(SHEETS.MESSAGES);
+    messages = messages.filter(m => m.from === req.user.id);
+
+    const users = await readSheet(SHEETS.USERS);
+
+    const enriched = messages.map(msg => {
+      const toUser = users.find(u => u.id === msg.to);
+      return {
+        ...msg,
+        read: msg.read === 'true',
+        to: toUser ? { id: toUser.id, username: toUser.username, avatar: toUser.avatar } : null
+      };
+    });
+
+    res.json({ messages: enriched, count: enriched.length });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Obtener items del usuario (sus ventas)
 app.get("/api/my-items", authMiddleware, async (req, res) => {
   try {

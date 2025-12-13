@@ -905,6 +905,8 @@ const ItemDetail = ({ item, user }) => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
+  const [showMessageModal, setShowMessageModal] = useState(false);
+  const [messageContent, setMessageContent] = useState("");
 
   if (!item) return null;
 
@@ -935,6 +937,42 @@ const ItemDetail = ({ item, user }) => {
         setSuccess("");
         setOfferMessage("");
       }, 2000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!user) {
+      setError('Debes iniciar sesión para enviar mensajes');
+      return;
+    }
+    if (!messageContent.trim()) {
+      setError('El mensaje está vacío');
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    try {
+      await fetchAPI('/messages', {
+        method: 'POST',
+        body: JSON.stringify({
+          to: item.seller ? item.seller.id : item.sellerId,
+          content: messageContent,
+          itemId: item.id
+        })
+      });
+
+      setSuccess('Mensaje enviado');
+      setMessageContent('');
+      setTimeout(() => {
+        setShowMessageModal(false);
+        setSuccess('');
+      }, 1200);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -1021,18 +1059,29 @@ const ItemDetail = ({ item, user }) => {
             {item.price} Solari
           </div>
 
-          <button
-            onClick={() => setShowOfferModal(true)}
-            disabled={!user}
-            className="w-full bg-primary text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="material-symbols-outlined text-xl">
-              price_check
-            </span>
-            <span>
-              {user ? "Emitir una oferta" : "Inicia sesión para ofertar"}
-            </span>
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => setShowOfferModal(true)}
+              disabled={!user}
+              className="w-full bg-primary text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="material-symbols-outlined text-xl">
+                price_check
+              </span>
+              <span>
+                {user ? "Emitir una oferta" : "Inicia sesión para ofertar"}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setShowMessageModal(true)}
+              disabled={!user || (user && user.id === item.sellerId)}
+              className="w-full bg-white dark:bg-[#111e22] border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white font-medium py-3 px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="material-symbols-outlined">chat</span>
+              <span>Contactar vendedor</span>
+            </button>
+          </div>
         </div>
 
         {showOfferModal && (
@@ -1101,6 +1150,45 @@ const ItemDetail = ({ item, user }) => {
             </div>
           </div>
         )}
+
+        {showMessageModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-[#111e22] rounded-lg p-6 max-w-md w-full">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">Enviar Mensaje</h3>
+                <button onClick={() => setShowMessageModal(false)} className="text-gray-500">
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+
+              <form onSubmit={handleSendMessage} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mensaje</label>
+                  <textarea
+                    value={messageContent}
+                    onChange={(e) => setMessageContent(e.target.value)}
+                    rows="4"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-lg text-gray-900 dark:text-white"
+                    placeholder="Escribe tu mensaje para coordinar la compra (lugar/horario)..."
+                    required
+                  />
+                </div>
+
+                {error && (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-red-500 text-sm">{error}</div>
+                )}
+
+                {success && (
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 text-green-500 text-sm">{success}</div>
+                )}
+
+                <button type="submit" disabled={loading} className="w-full bg-primary text-white py-3 rounded-lg font-bold hover:bg-primary/90 transition-colors disabled:opacity-50">
+                  {loading ? 'Enviando...' : 'Enviar Mensaje'}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   );
@@ -1109,10 +1197,57 @@ const ItemDetail = ({ item, user }) => {
 // Componente de Perfil de Usuario
 const UserProfile = ({ user, onClose }) => {
   const [activeSection, setActiveSection] = useState("items");
+  const [conversations, setConversations] = useState([]);
+  const [selectedConversationUser, setSelectedConversationUser] = useState(null);
+  const [conversationMessages, setConversationMessages] = useState([]);
+  const [newConversationMessage, setNewConversationMessage] = useState("");
   const [myItems, setMyItems] = useState([]);
   const [offers, setOffers] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const loadConversations = async () => {
+    try {
+      const data = await fetchAPI('/messages/inbox');
+      // Agrupar por remitente
+      const grouped = {};
+      data.messages.forEach(m => {
+        const from = m.from ? m.from.id : m.from;
+        if (!grouped[from]) grouped[from] = { user: m.from, messages: [] };
+        grouped[from].messages.push(m);
+      });
+      const convs = Object.keys(grouped).map(k => ({ user: grouped[k].user, lastMessage: grouped[k].messages[grouped[k].messages.length-1] }));
+      setConversations(convs);
+    } catch (err) {
+      console.error('Error loading conversations:', err);
+    }
+  };
+
+  const openConversation = async (otherUser) => {
+    setSelectedConversationUser(otherUser);
+    try {
+      const data = await fetchAPI(`/messages/conversation/${otherUser.id}`);
+      setConversationMessages(data.messages);
+    } catch (err) {
+      console.error('Error loading conversation:', err);
+    }
+  };
+
+  const sendConversationMessage = async (e) => {
+    e.preventDefault();
+    if (!newConversationMessage.trim() || !selectedConversationUser) return;
+    try {
+      await fetchAPI('/messages', { method: 'POST', body: JSON.stringify({ to: selectedConversationUser.id, content: newConversationMessage }) });
+      setNewConversationMessage('');
+      // Refrescar conversación
+      const data = await fetchAPI(`/messages/conversation/${selectedConversationUser.id}`);
+      setConversationMessages(data.messages);
+      // Refresh inbox list
+      loadConversations();
+    } catch (err) {
+      alert('Error enviando mensaje: ' + err.message);
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -1130,6 +1265,8 @@ const UserProfile = ({ user, onClose }) => {
       } else if (activeSection === "offers") {
         const offersData = await fetchAPI("/offers/my-offers?type=received");
         setOffers(offersData.offers);
+      } else if (activeSection === "messages") {
+        await loadConversations();
       }
     } catch (err) {
       console.error("Error loading data:", err);
@@ -1234,6 +1371,16 @@ const UserProfile = ({ user, onClose }) => {
             }`}
           >
             Ofertas Recibidas
+          </button>
+          <button
+            onClick={() => setActiveSection('messages')}
+            className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+              activeSection === 'messages'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            Mensajes
           </button>
         </div>
 
@@ -1411,6 +1558,56 @@ const UserProfile = ({ user, onClose }) => {
                     </div>
                   ))
                 )}
+              </div>
+            )}
+
+            {activeSection === 'messages' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="col-span-1 bg-white dark:bg-[#111e22] rounded-lg p-4 border border-gray-200 dark:border-white/10">
+                    <h4 className="font-bold mb-3">Conversaciones</h4>
+                    {conversations.length === 0 ? (
+                      <p className="text-sm text-gray-500">No hay mensajes</p>
+                    ) : (
+                      conversations.map((c, idx) => (
+                        <div key={idx} onClick={() => openConversation(c.user)} className="p-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gray-100" style={{backgroundImage: `url('${c.user?.avatar}')`, backgroundSize: 'cover'}}></div>
+                            <div>
+                              <div className="font-medium">{c.user?.username || 'Usuario'}</div>
+                              <div className="text-xs text-gray-500">{c.lastMessage ? c.lastMessage.content : ''}</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="col-span-2 bg-white dark:bg-[#111e22] rounded-lg p-4 border border-gray-200 dark:border-white/10">
+                    {selectedConversationUser ? (
+                      <div>
+                        <h4 className="font-bold mb-3">Conversación con {selectedConversationUser.username}</h4>
+                        <div className="space-y-2 max-h-96 overflow-auto mb-4">
+                          {conversationMessages.map((m, i) => (
+                            <div key={i} className={`p-3 rounded-lg ${m.from && m.from.username === user.username ? 'bg-primary/10 self-end' : 'bg-gray-100 dark:bg-white/5'}`}>
+                              <div className="text-sm">{m.content}</div>
+                              <div className="text-xs text-gray-400 mt-1">{new Date(m.timestamp).toLocaleString()}</div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <form onSubmit={sendConversationMessage} className="space-y-3">
+                          <textarea value={newConversationMessage} onChange={(e) => setNewConversationMessage(e.target.value)} className="w-full px-3 py-2 bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-lg text-gray-900 dark:text-white" rows="3" placeholder="Escribe tu respuesta..." required></textarea>
+                          <div className="flex gap-2">
+                            <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg">Enviar</button>
+                            <button type="button" onClick={() => { setSelectedConversationUser(null); setConversationMessages([]); }} className="px-4 py-2 bg-gray-100 dark:bg-white/5 rounded-lg">Cerrar</button>
+                          </div>
+                        </form>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">Selecciona una conversación para ver y responder mensajes.</p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </React.Fragment>
