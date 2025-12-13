@@ -4,6 +4,9 @@ const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const { CleanWebpackPlugin } = require("clean-webpack-plugin");
 const CopyPlugin = require("copy-webpack-plugin");
 const TerserPlugin = require("terser-webpack-plugin");
+const { DefinePlugin } = require("webpack");
+
+const envVars = require("dotenv").config().parsed || {};
 
 module.exports = {
   entry: "./src/js/app.js", // Main JavaScript entry
@@ -11,6 +14,7 @@ module.exports = {
     // filename: "bundle.[contenthash].js", // Output filename with cache-busting
     filename: "bundle.js",
     path: path.resolve(__dirname, "public"),
+    publicPath: "/",
   },
   mode: "production", // For minimized JS and CSS
   module: {
@@ -44,6 +48,11 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: "./src/index.html",
       inject: "head",
+    }),
+    new DefinePlugin({
+      AppConfig: JSON.stringify({
+        API_BASE_URL: envVars.API_BASE_URL,
+      }),
     }),
     // Copy static assets
     // TODO uncomment when assets present

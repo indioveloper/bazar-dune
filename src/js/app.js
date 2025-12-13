@@ -2,7 +2,8 @@ import React from "react";
 import { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = AppConfig.API_BASE_URL || "http://localhost:5000/api";
+console.log(API_URL);
 
 const getToken = () => localStorage.getItem("token");
 const setToken = (token) => localStorage.setItem("token", token);
@@ -538,7 +539,12 @@ const CreateItemPage = ({ user, onClose, onItemCreated }) => {
     e.preventDefault();
 
     // Permitir publicar con nombre libre (searchQuery) o seleccionando un item del catálogo
-    if ((!selectedItem && !searchQuery.trim()) || !price || !selectedRegion || !selectedServer) {
+    if (
+      (!selectedItem && !searchQuery.trim()) ||
+      !price ||
+      !selectedRegion ||
+      !selectedServer
+    ) {
       setError("Por favor completa todos los campos");
       return;
     }
@@ -696,7 +702,11 @@ const CreateItemPage = ({ user, onClose, onItemCreated }) => {
 
           <button
             disabled={
-              loading || ((!selectedItem && !searchQuery.trim()) || !price || !selectedRegion || !selectedServer)
+              loading ||
+              (!selectedItem && !searchQuery.trim()) ||
+              !price ||
+              !selectedRegion ||
+              !selectedServer
             }
             type="submit"
             className="w-full bg-primary text-white py-3 rounded-lg font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1167,7 +1177,7 @@ const UserProfile = ({ user, onClose }) => {
           </button>
         </div>
 
-           {/* Información del Usuario */}
+        {/* Información del Usuario */}
         <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 mb-6">
           <div className="flex items-start gap-4">
             <div className="flex-shrink-0">
@@ -1183,12 +1193,20 @@ const UserProfile = ({ user, onClose }) => {
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                 <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                  <span className="material-symbols-outlined text-base">public</span>
-                  <span><strong>Región:</strong> {user.region}</span>
+                  <span className="material-symbols-outlined text-base">
+                    public
+                  </span>
+                  <span>
+                    <strong>Región:</strong> {user.region}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                  <span className="material-symbols-outlined text-base">dns</span>
-                  <span><strong>Servidor:</strong> {user.server}</span>
+                  <span className="material-symbols-outlined text-base">
+                    dns
+                  </span>
+                  <span>
+                    <strong>Servidor:</strong> {user.server}
+                  </span>
                 </div>
               </div>
             </div>
