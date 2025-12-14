@@ -28,7 +28,19 @@ const fetchAPI = async (endpoint, options = {}) => {
     headers,
   });
 
-  const data = await response.json();
+  const contentType = response.headers.get('content-type') || '';
+  let data;
+  if (contentType.includes('application/json')) {
+    data = await response.json();
+  } else {
+    // If server returned non-JSON (likely HTML), capture text to help debugging
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(text || 'Unexpected non-JSON response');
+    }
+    // If ok but not JSON, still treat as error for API calls
+    throw new Error(`Expected JSON but got: ${text.slice(0, 200)}`);
+  }
 
   if (!response.ok) {
     throw new Error(data.error || "Error en la petición");

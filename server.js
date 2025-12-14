@@ -810,6 +810,18 @@ app.get("/api/sales-stats", authMiddleware, async (req, res) => {
   }
 });
 
+// Fallback para cualquier ruta /api no encontrada -> devolver JSON 404
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ error: 'API endpoint not found' });
+});
+
+// Manejador de errores global (dev friendly) — siempre devuelve JSON
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err && err.stack ? err.stack : err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: err.message || 'Internal Server Error' });
+});
+
 // ================= INICIO DEL SERVIDOR (dev) =================
 
 if (process.env.NODE_ENV === "development") {
