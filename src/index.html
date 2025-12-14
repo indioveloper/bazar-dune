@@ -40,6 +40,13 @@
     body {
       font-family: 'Space Grotesk', sans-serif;
     }
+    /* Ensure dark mode doesn't show black text on dark backgrounds */
+    .dark .text-black,
+    .dark .text-gray-900,
+    .dark .text-gray-800,
+    .dark .text-gray-700 {
+      color: #ffffff !important;
+    }
   </style>
 </head>
 

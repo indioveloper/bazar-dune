@@ -1186,6 +1186,17 @@ const UserProfile = ({ user, onClose }) => {
     }
   };
 
+  const handleDeleteItem = async (itemId) => {
+    if (!itemId) return;
+    if (!confirm('¿Eliminar este artículo? Esta acción es irreversible.')) return;
+    try {
+      await fetchAPI(`/items/${itemId}`, { method: 'DELETE' });
+      await loadData();
+    } catch (err) {
+      alert('Error eliminando artículo: ' + err.message);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
       <div className="bg-white dark:bg-[#111e22] rounded-lg p-6 max-w-4xl w-full my-8 max-h-[90vh] overflow-y-auto">
@@ -1247,6 +1258,7 @@ const UserProfile = ({ user, onClose }) => {
                         <p className="text-sm text-gray-600 dark:text-gray-400">{item.price} Solari</p>
                       </div>
                       <span className={`px-3 py-1 rounded-full text-sm font-medium ${item.status === 'available' ? 'bg-green-500/20 text-green-500' : 'bg-gray-500/20 text-gray-500'}`}>{item.status === 'available' ? 'Disponible' : 'Vendido'}</span>
+                      <button onClick={() => handleDeleteItem(item.id)} className="ml-3 px-3 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-colors">Eliminar</button>
                     </div>
                   ))}
                 </div>
@@ -1274,13 +1286,19 @@ const UserProfile = ({ user, onClose }) => {
                     {selectedConversationUser ? (
                       <div>
                         <h4 className="font-bold mb-3">Conversación con {selectedConversationUser.username}</h4>
-                        <div className="space-y-2 max-h-96 overflow-auto mb-4">
-                          {conversationMessages.map((m, i) => (
-                            <div key={i} className={`p-3 rounded-lg ${ (m.from && m.from.username === user.username) || (m.from && m.from.id === user.id) ? 'bg-primary/10 self-end' : 'bg-gray-100 dark:bg-white/5'}`}>
-                              <div className="text-sm">{m.content || m.message || (m.type === 'offer' ? `Oferta: ${m.amount}` : '')}</div>
-                              <div className="text-xs text-gray-400 mt-1">{new Date(m.createdAt || m.timestamp || m.updatedAt || Date.now()).toLocaleString()}</div>
-                            </div>
-                          ))}
+                        <div className="space-y-2 max-h-96 overflow-auto mb-4 flex flex-col">
+                          {conversationMessages.map((m, i) => {
+                            const isOwn = (m.from && ((m.from.username === user.username) || (m.from.id === user.id)));
+                            const dateStr = new Date(m.createdAt || m.timestamp || m.updatedAt || Date.now()).toLocaleString();
+                            return (
+                              <div key={i} className={`w-full flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`p-3 rounded-lg max-w-[75%] ${isOwn ? 'bg-primary/10 text-primary dark:text-white' : 'bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white'}`}>
+                                  <div className="text-sm break-words">{m.content || m.message || (m.type === 'offer' ? `Oferta: ${m.amount}` : '')}</div>
+                                  <div className="text-xs text-gray-400 dark:text-gray-400 mt-1">{dateStr}</div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
 
                         <form onSubmit={sendConversationMessage} className="space-y-3">
