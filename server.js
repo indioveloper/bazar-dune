@@ -196,18 +196,17 @@ app.post("/api/auth/register", async (req, res) => {
     const userId = generateId();
 
     // Crear usuario
-    const newUser = [
+        const newUser = [
       userId,
       username,
       email,
       hashedPassword,
-      "https://placehold.co/100x100/4F46E5/FFFFFF/png", // avatar
-      "seller", // ← Siempre "seller"
-      "0", // ← 0 solari (no se usa en la web)
+      'https://placehold.co/100x100/4F46E5/FFFFFF/png', // avatar
+      'seller', // role
       server,
       region,
       new Date().toISOString(),
-    ];
+        ];
 
     await appendRow(SHEETS.USERS, newUser);
 
@@ -268,7 +267,6 @@ app.post("/api/auth/login", async (req, res) => {
         email: user.email,
         avatar: user.avatar,
         role: user.role,
-        solari: parseInt(user.solari),
         server: user.server,
         region: user.region,
       },
@@ -280,16 +278,17 @@ app.post("/api/auth/login", async (req, res) => {
 
 // Perfil del usuario
 app.get("/api/auth/me", authMiddleware, async (req, res) => {
-  res.json({
-    user: {
-      id: req.user.id,
-      username: req.user.username,
-      email: req.user.email,
-      avatar: req.user.avatar,
-      role: req.user.role,
-      solari: parseInt(req.user.solari),
-    },
-  });
+    res.json({
+      user: {
+        id: req.user.id,
+        username: req.user.username,
+        email: req.user.email,
+        avatar: req.user.avatar,
+        role: req.user.role,
+        server: req.user.server,
+        region: req.user.region,
+      },
+    });
 });
 
 // ==================== RUTAS DE ARTÍCULOS ====================
@@ -624,7 +623,7 @@ app.put("/api/offers/:id", authMiddleware, async (req, res) => {
     offer.status = status;
     await updateRow(SHEETS.OFFERS, offerIndex, Object.values(offer));
 
-    if (status === "accepted") {
+      if (status === "accepted") {
       // Actualizar item como vendido
       const { data: item, index: itemIndex } = await findRowByField(
         SHEETS.ITEMS,
@@ -634,33 +633,8 @@ app.put("/api/offers/:id", authMiddleware, async (req, res) => {
       item.status = "sold";
       item.stock = Math.max(0, parseInt(item.stock) - 1).toString();
       await updateRow(SHEETS.ITEMS, itemIndex, Object.values(item));
-
-      // Transferir solari
-      const { data: buyer, index: buyerIndex } = await findRowByField(
-        SHEETS.USERS,
-        "id",
-        offer.buyerId
-      );
-      const { data: seller, index: sellerIndex } = await findRowByField(
-        SHEETS.USERS,
-        "id",
-        offer.sellerId
-      );
-
-      const buyerSolari = parseInt(buyer.solari);
-      const offerAmount = parseInt(offer.amount);
-
-      if (buyerSolari < offerAmount) {
-        return res
-          .status(400)
-          .json({ error: "El comprador no tiene suficiente Solari" });
-      }
-
-      buyer.solari = (buyerSolari - offerAmount).toString();
-      seller.solari = (parseInt(seller.solari) + offerAmount).toString();
-
-      await updateRow(SHEETS.USERS, buyerIndex, Object.values(buyer));
-      await updateRow(SHEETS.USERS, sellerIndex, Object.values(seller));
+      // No in-app currency transfers: mark item as sold and reduce stock only.
+      // Previous implementation updated buyer/seller balances (solari); removed per product decision.
     }
 
     res.json({

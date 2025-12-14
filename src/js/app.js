@@ -900,20 +900,18 @@ const ItemCard = ({ item, isSelected, onClick }) => (
 
 const ItemDetail = ({ item, user }) => {
   const [showOfferModal, setShowOfferModal] = useState(false);
-  const [offerAmount, setOfferAmount] = useState(item ? item.price : 0);
+  const [offerAmount, setOfferAmount] = useState(item ? item.price : "");
   const [offerMessage, setOfferMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
-  const [showMessageModal, setShowMessageModal] = useState(false);
-  const [messageContent, setMessageContent] = useState("");
 
   if (!item) return null;
 
   const handleOfferSubmit = async (e) => {
     e.preventDefault();
     if (!user) {
-      setError("Debes iniciar sesión para hacer una oferta");
+      setError("Debes iniciar sesión para hacer una oferta o enviar un mensaje");
       return;
     }
 
@@ -922,57 +920,50 @@ const ItemDetail = ({ item, user }) => {
     setSuccess("");
 
     try {
-      await fetchAPI("/offers", {
-        method: "POST",
-        body: JSON.stringify({
-          itemId: item.id,
-          amount: parseInt(offerAmount),
-          message: offerMessage,
-        }),
-      });
+      const toId = item.sellerId || (item.seller && item.seller.id) || null;
 
-      setSuccess("¡Oferta enviada exitosamente!");
-      setTimeout(() => {
-        setShowOfferModal(false);
-        setSuccess("");
-        setOfferMessage("");
-      }, 2000);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+      // Si no hay cantidad, enviar solo mensaje
+      if (!offerAmount) {
+        if (!offerMessage || !offerMessage.trim()) {
+          setError('Introduce un mensaje para enviar');
+          setLoading(false);
+          return;
+        }
 
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!user) {
-      setError('Debes iniciar sesión para enviar mensajes');
-      return;
-    }
-    if (!messageContent.trim()) {
-      setError('El mensaje está vacío');
-      return;
-    }
+        await fetchAPI('/messages', {
+          method: 'POST',
+          body: JSON.stringify({ to: toId, content: offerMessage, itemId: item.id })
+        });
 
-    setLoading(true);
-    setError("");
-    try {
-      await fetchAPI('/messages', {
-        method: 'POST',
-        body: JSON.stringify({
-          to: item.seller ? item.seller.id : item.sellerId,
-          content: messageContent,
-          itemId: item.id
-        })
-      });
+        setSuccess('Mensaje enviado');
+        setTimeout(() => {
+          setShowOfferModal(false);
+          setSuccess('');
+          setOfferMessage('');
+        }, 1200);
+      } else {
+        // Enviar oferta con mensaje opcional
+        await fetchAPI('/offers', {
+          method: 'POST',
+          body: JSON.stringify({ itemId: item.id, amount: parseInt(offerAmount), message: offerMessage })
+        });
 
-      setSuccess('Mensaje enviado');
-      setMessageContent('');
-      setTimeout(() => {
-        setShowMessageModal(false);
-        setSuccess('');
-      }, 1200);
+        // Registrar también en mensajes para mantener historial
+        if (offerMessage && offerMessage.trim()) {
+          await fetchAPI('/messages', {
+            method: 'POST',
+            body: JSON.stringify({ to: toId, content: offerMessage, itemId: item.id })
+          });
+        }
+
+        setSuccess('¡Oferta enviada exitosamente!');
+        setTimeout(() => {
+          setShowOfferModal(false);
+          setSuccess('');
+          setOfferMessage('');
+          setOfferAmount('');
+        }, 1500);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -985,69 +976,39 @@ const ItemDetail = ({ item, user }) => {
       <div className="flex flex-col gap-6 p-6 rounded-lg bg-white dark:bg-[#111e22] border border-gray-200 dark:border-white/10">
         <div className="flex flex-col gap-4">
           <div className="w-full bg-center bg-no-repeat aspect-[4/3] bg-cover rounded-lg bg-gray-100 dark:bg-white/5">
-            <div
-              className="w-full h-full bg-center bg-no-repeat bg-contain"
-              style={{ backgroundImage: `url("${item.largeImageUrl}")` }}
-            ></div>
+            <div className="w-full h-full bg-center bg-no-repeat bg-contain" style={{ backgroundImage: `url("${item.largeImageUrl}")` }}></div>
           </div>
           <div className="flex justify-between items-start gap-4">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {item.name}
-            </h2>
-            <span className="px-3 py-1 bg-primary/20 text-primary rounded-full text-sm font-bold">
-              Tier {item.tier}
-            </span>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{item.name}</h2>
+            <span className="px-3 py-1 bg-primary/20 text-primary rounded-full text-sm font-bold">Tier {item.tier}</span>
           </div>
         </div>
 
         <div className="flex flex-col gap-4">
           <div>
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Descripción
-            </p>
-            <p className="text-base text-gray-800 dark:text-gray-200">
-              {item.description}
-            </p>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Descripción</p>
+            <p className="text-base text-gray-800 dark:text-gray-200">{item.description}</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Tipo
-              </p>
-              <p className="text-base text-gray-800 dark:text-gray-200">
-                {item.type}
-              </p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Tipo</p>
+              <p className="text-base text-gray-800 dark:text-gray-200">{item.type}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Stock
-              </p>
-              <p className="text-base text-gray-800 dark:text-gray-200">
-                {item.stock}
-              </p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Stock</p>
+              <p className="text-base text-gray-800 dark:text-gray-200">{item.stock}</p>
             </div>
           </div>
 
           {item.seller && (
             <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Vendedor
-              </p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Vendedor</p>
               <div className="flex items-center gap-2 mt-1">
-                <div
-                  className="size-8 rounded-full bg-cover bg-center"
-                  style={{ backgroundImage: `url('${item.seller.avatar}')` }}
-                ></div>
+                <div className="size-8 rounded-full bg-cover bg-center" style={{ backgroundImage: `url('${item.seller.avatar}')` }}></div>
                 <div>
-                  <p className="text-base font-medium text-gray-800 dark:text-gray-200">
-                    {item.seller.username}
-                  </p>
-                  {item.server && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Servidor: {item.server}
-                    </p>
-                  )}
+                  <p className="text-base font-medium text-gray-800 dark:text-gray-200">{item.seller.username}</p>
+                  {item.server && <p className="text-xs text-gray-500 dark:text-gray-400">Servidor: {item.server}</p>}
                 </div>
               </div>
             </div>
@@ -1055,31 +1016,12 @@ const ItemDetail = ({ item, user }) => {
         </div>
 
         <div className="flex flex-col gap-3 pt-4 border-t border-gray-200 dark:border-white/10">
-          <div className="text-3xl font-bold text-primary">
-            {item.price} Solari
-          </div>
+          <div className="text-3xl font-bold text-primary">{item.price} Solari</div>
 
           <div className="flex flex-col gap-2">
-            <button
-              onClick={() => setShowOfferModal(true)}
-              disabled={!user}
-              className="w-full bg-primary text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <span className="material-symbols-outlined text-xl">
-                price_check
-              </span>
-              <span>
-                {user ? "Emitir una oferta" : "Inicia sesión para ofertar"}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setShowMessageModal(true)}
-              disabled={!user || (user && user.id === item.sellerId)}
-              className="w-full bg-white dark:bg-[#111e22] border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white font-medium py-3 px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <span className="material-symbols-outlined">chat</span>
-              <span>Contactar vendedor</span>
+            <button onClick={() => setShowOfferModal(true)} disabled={!user} className="w-full bg-primary text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              <span className="material-symbols-outlined text-xl">price_check</span>
+              <span>{user ? 'Emitir una oferta / Enviar mensaje' : 'Inicia sesión para contactar'}</span>
             </button>
           </div>
         </div>
@@ -1088,107 +1030,30 @@ const ItemDetail = ({ item, user }) => {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white dark:bg-[#111e22] rounded-lg p-6 max-w-md w-full">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Hacer Oferta
-                </h3>
-                <button
-                  onClick={() => setShowOfferModal(false)}
-                  className="text-gray-500"
-                >
-                  <span className="material-symbols-outlined">close</span>
-                </button>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">Hacer Oferta / Mensaje</h3>
+                <button onClick={() => setShowOfferModal(false)} className="text-gray-500"><span className="material-symbols-outlined">close</span></button>
               </div>
 
               <form onSubmit={handleOfferSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Cantidad (Solari)
-                  </label>
-                  <input
-                    type="number"
-                    value={offerAmount}
-                    onChange={(e) => setOfferAmount(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-lg text-gray-900 dark:text-white"
-                    min="1"
-                    required
-                  />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cantidad (Solari) — opcional</label>
+                  <input type="number" value={offerAmount} onChange={(e) => setOfferAmount(e.target.value)} className="w-full px-3 py-2 bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-lg text-gray-900 dark:text-white" min="1" />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Mensaje (opcional)
-                  </label>
-                  <textarea
-                    value={offerMessage}
-                    onChange={(e) => setOfferMessage(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-lg text-gray-900 dark:text-white"
-                    rows="3"
-                    placeholder="Añade un mensaje al vendedor..."
-                  />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mensaje (opcional)</label>
+                  <textarea value={offerMessage} onChange={(e) => setOfferMessage(e.target.value)} className="w-full px-3 py-2 bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-lg text-gray-900 dark:text-white" rows="3" placeholder="Coordina lugar/hora o añade notas..." />
                 </div>
 
-                {error && (
-                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-red-500 text-sm">
-                    {error}
-                  </div>
-                )}
+                {error && <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-red-500 text-sm">{error}</div>}
+                {success && <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 text-green-500 text-sm">{success}</div>}
 
-                {success && (
-                  <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 text-green-500 text-sm">
-                    {success}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-primary text-white py-3 rounded-lg font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
-                >
-                  {loading ? "Enviando..." : "Enviar Oferta"}
-                </button>
+                <button type="submit" disabled={loading} className="w-full bg-primary text-white py-3 rounded-lg font-bold hover:bg-primary/90 transition-colors disabled:opacity-50">{loading ? 'Enviando...' : 'Enviar'}</button>
               </form>
             </div>
           </div>
         )}
 
-        {showMessageModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-[#111e22] rounded-lg p-6 max-w-md w-full">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">Enviar Mensaje</h3>
-                <button onClick={() => setShowMessageModal(false)} className="text-gray-500">
-                  <span className="material-symbols-outlined">close</span>
-                </button>
-              </div>
-
-              <form onSubmit={handleSendMessage} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mensaje</label>
-                  <textarea
-                    value={messageContent}
-                    onChange={(e) => setMessageContent(e.target.value)}
-                    rows="4"
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-lg text-gray-900 dark:text-white"
-                    placeholder="Escribe tu mensaje para coordinar la compra (lugar/horario)..."
-                    required
-                  />
-                </div>
-
-                {error && (
-                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-red-500 text-sm">{error}</div>
-                )}
-
-                {success && (
-                  <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 text-green-500 text-sm">{success}</div>
-                )}
-
-                <button type="submit" disabled={loading} className="w-full bg-primary text-white py-3 rounded-lg font-bold hover:bg-primary/90 transition-colors disabled:opacity-50">
-                  {loading ? 'Enviando...' : 'Enviar Mensaje'}
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
       </div>
     </aside>
   );
@@ -1197,26 +1062,75 @@ const ItemDetail = ({ item, user }) => {
 // Componente de Perfil de Usuario
 const UserProfile = ({ user, onClose }) => {
   const [activeSection, setActiveSection] = useState("items");
+  const [myItems, setMyItems] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+
   const [conversations, setConversations] = useState([]);
   const [selectedConversationUser, setSelectedConversationUser] = useState(null);
   const [conversationMessages, setConversationMessages] = useState([]);
   const [newConversationMessage, setNewConversationMessage] = useState("");
-  const [myItems, setMyItems] = useState([]);
-  const [offers, setOffers] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, [activeSection]);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      if (activeSection === 'items') {
+        const itemsData = await fetchAPI('/my-items');
+        setMyItems(itemsData.items);
+        const statsData = await fetchAPI('/sales-stats');
+        setStats(statsData);
+      } else if (activeSection === 'conversations') {
+        await loadConversations();
+      }
+    } catch (err) {
+      console.error('Error loading data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Offer accept/reject removed — conversations are reply-only now.
 
   const loadConversations = async () => {
     try {
-      const data = await fetchAPI('/messages/inbox');
-      // Agrupar por remitente
+      const [msgData, offersData] = await Promise.all([
+        fetchAPI('/messages/inbox'),
+        fetchAPI('/offers/my-offers?type=received'),
+      ]);
+
       const grouped = {};
-      data.messages.forEach(m => {
-        const from = m.from ? m.from.id : m.from;
-        if (!grouped[from]) grouped[from] = { user: m.from, messages: [] };
-        grouped[from].messages.push(m);
+
+      (msgData.messages || []).forEach(m => {
+        const otherId = m.from ? m.from.id : m.from;
+        if (!grouped[otherId]) grouped[otherId] = { user: m.from, lastActivity: m.createdAt || m.timestamp, lastMessage: m };
+        else if ((m.createdAt || m.timestamp) > grouped[otherId].lastActivity) grouped[otherId].lastActivity = m.createdAt || m.timestamp, grouped[otherId].lastMessage = m;
       });
-      const convs = Object.keys(grouped).map(k => ({ user: grouped[k].user, lastMessage: grouped[k].messages[grouped[k].messages.length-1] }));
+
+      (offersData.offers || []).forEach(o => {
+        const other = o.buyer || { id: o.buyerId, username: (o.buyer && o.buyer.username) || 'Usuario' };
+        const otherId = other.id || o.buyerId;
+        const summary = {
+          type: 'offer',
+          id: o.id,
+          content: o.message || `Oferta ${o.amount}`,
+          amount: o.amount,
+          status: o.status,
+          itemId: o.itemId,
+          createdAt: o.createdAt || o.timestamp || new Date().toISOString(),
+        };
+
+        if (!grouped[otherId]) grouped[otherId] = { user: other, lastActivity: summary.createdAt, lastMessage: summary };
+        else if (summary.createdAt > grouped[otherId].lastActivity) grouped[otherId].lastActivity = summary.createdAt, grouped[otherId].lastMessage = summary;
+      });
+
+      const convs = Object.keys(grouped)
+        .map(k => ({ user: grouped[k].user, lastMessage: grouped[k].lastMessage, lastActivity: grouped[k].lastActivity }))
+        .sort((a, b) => new Date(b.lastActivity) - new Date(a.lastActivity));
+
       setConversations(convs);
     } catch (err) {
       console.error('Error loading conversations:', err);
@@ -1227,7 +1141,20 @@ const UserProfile = ({ user, onClose }) => {
     setSelectedConversationUser(otherUser);
     try {
       const data = await fetchAPI(`/messages/conversation/${otherUser.id}`);
-      setConversationMessages(data.messages);
+      let msgs = data.messages || [];
+      // If no messages but there's an offer as lastMessage in conversations, show offer summary
+      const conv = conversations.find(c => c.user && (c.user.id === otherUser.id || c.user === otherUser));
+      if ((!msgs || msgs.length === 0) && conv && conv.lastMessage && conv.lastMessage.type === 'offer') {
+        msgs = [{
+          id: conv.lastMessage.id,
+          from: { username: conv.user?.username || 'Usuario' },
+          to: user,
+          content: conv.lastMessage.content || `Oferta: ${conv.lastMessage.amount}`,
+          createdAt: conv.lastMessage.createdAt,
+          type: 'offer'
+        }];
+      }
+      setConversationMessages(msgs);
     } catch (err) {
       console.error('Error loading conversation:', err);
     }
@@ -1239,63 +1166,11 @@ const UserProfile = ({ user, onClose }) => {
     try {
       await fetchAPI('/messages', { method: 'POST', body: JSON.stringify({ to: selectedConversationUser.id, content: newConversationMessage }) });
       setNewConversationMessage('');
-      // Refrescar conversación
       const data = await fetchAPI(`/messages/conversation/${selectedConversationUser.id}`);
       setConversationMessages(data.messages);
-      // Refresh inbox list
       loadConversations();
     } catch (err) {
       alert('Error enviando mensaje: ' + err.message);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [activeSection]);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      if (activeSection === "items") {
-        const itemsData = await fetchAPI("/my-items");
-        setMyItems(itemsData.items);
-
-        const statsData = await fetchAPI("/sales-stats");
-        setStats(statsData);
-      } else if (activeSection === "offers") {
-        const offersData = await fetchAPI("/offers/my-offers?type=received");
-        setOffers(offersData.offers);
-      } else if (activeSection === "messages") {
-        await loadConversations();
-      }
-    } catch (err) {
-      console.error("Error loading data:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAcceptOffer = async (offerId) => {
-    try {
-      await fetchAPI(`/offers/${offerId}`, {
-        method: "PUT",
-        body: JSON.stringify({ status: "accepted" }),
-      });
-      loadData();
-    } catch (err) {
-      alert("Error al aceptar oferta: " + err.message);
-    }
-  };
-
-  const handleRejectOffer = async (offerId) => {
-    try {
-      await fetchAPI(`/offers/${offerId}`, {
-        method: "PUT",
-        body: JSON.stringify({ status: "rejected" }),
-      });
-      loadData();
-    } catch (err) {
-      alert("Error al rechazar oferta: " + err.message);
     }
   };
 
@@ -1303,44 +1178,27 @@ const UserProfile = ({ user, onClose }) => {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
       <div className="bg-white dark:bg-[#111e22] rounded-lg p-6 max-w-4xl w-full my-8 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Mi Perfil
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-          >
-            <span className="material-symbols-outlined">close</span>
-          </button>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Mi Perfil</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"><span className="material-symbols-outlined">close</span></button>
         </div>
 
-        {/* Información del Usuario */}
+  {/* Información del Usuario */}
         <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 mb-6">
           <div className="flex items-start gap-4">
             <div className="flex-shrink-0">
-              <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
-                <span className="text-2xl font-bold text-primary">
-                  {user.username.charAt(0).toUpperCase()}
-                </span>
-              </div>
+              <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center"><span className="text-2xl font-bold text-primary">{user.username.charAt(0).toUpperCase()}</span></div>
             </div>
             <div className="flex-1">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                {user.username}
-              </h3>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{user.username}</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                 <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                  <span className="material-symbols-outlined text-base">
-                    public
-                  </span>
+                  <span className="material-symbols-outlined text-base">public</span>
                   <span>
                     <strong>Región:</strong> {user.region}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                  <span className="material-symbols-outlined text-base">
-                    dns
-                  </span>
+                  <span className="material-symbols-outlined text-base">dns</span>
                   <span>
                     <strong>Servidor:</strong> {user.server}
                   </span>
@@ -1350,237 +1208,55 @@ const UserProfile = ({ user, onClose }) => {
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-white/10">
-          <button
-            onClick={() => setActiveSection("items")}
-            className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-              activeSection === "items"
-                ? "border-primary text-primary"
-                : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-            }`}
-          >
-            Mis Ventas
-          </button>
-          <button
-            onClick={() => setActiveSection("offers")}
-            className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-              activeSection === "offers"
-                ? "border-primary text-primary"
-                : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-            }`}
-          >
-            Ofertas Recibidas
-          </button>
-          <button
-            onClick={() => setActiveSection('messages')}
-            className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-              activeSection === 'messages'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            Mensajes
-          </button>
+          <button onClick={() => setActiveSection('items')} className={`px-4 py-2 font-medium transition-colors border-b-2 ${activeSection === 'items' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>Mis Ventas</button>
+          <button onClick={() => setActiveSection('conversations')} className={`px-4 py-2 font-medium transition-colors border-b-2 ${activeSection === 'conversations' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>Conversaciones</button>
         </div>
 
-        {loading ? (
-          <div className="text-center py-12 text-gray-500">Cargando...</div>
-        ) : (
+        {loading ? <div className="text-center py-12 text-gray-500">Cargando...</div> : (
           <React.Fragment>
-            {/* Sección de Items */}
-            {activeSection === "items" && (
+            {activeSection === 'items' && (
               <div className="space-y-6">
                 {stats && (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Total Items
-                      </p>
-                      <p className="text-2xl font-bold text-primary">
-                        {stats.totalItems}
-                      </p>
-                    </div>
-                    <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Activos
-                      </p>
-                      <p className="text-2xl font-bold text-green-500">
-                        {stats.activeItems}
-                      </p>
-                    </div>
-                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Vendidos
-                      </p>
-                      <p className="text-2xl font-bold text-blue-500">
-                        {stats.soldItems}
-                      </p>
-                    </div>
-                    <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Ofertas Pendientes
-                      </p>
-                      <p className="text-2xl font-bold text-orange-500">
-                        {stats.pendingOffers}
-                      </p>
-                    </div>
+                    <div className="bg-primary/10 border border-primary/20 rounded-lg p-4"><p className="text-sm text-gray-600 dark:text-gray-400">Total Items</p><p className="text-2xl font-bold text-primary">{stats.totalItems}</p></div>
+                    <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4"><p className="text-sm text-gray-600 dark:text-gray-400">Activos</p><p className="text-2xl font-bold text-green-500">{stats.activeItems}</p></div>
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4"><p className="text-sm text-gray-600 dark:text-gray-400">Vendidos</p><p className="text-2xl font-bold text-blue-500">{stats.soldItems}</p></div>
+                    <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4"><p className="text-sm text-gray-600 dark:text-gray-400">Ofertas Pendientes</p><p className="text-2xl font-bold text-orange-500">{stats.pendingOffers}</p></div>
                   </div>
                 )}
 
                 <div className="space-y-3">
-                  {myItems.length === 0 ? (
-                    <p className="text-center text-gray-500 py-8">
-                      No tienes items publicados
-                    </p>
-                  ) : (
-                    myItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-white/10"
-                      >
-                        <img
-                          src={item.imageUrl}
-                          alt={item.name}
-                          className="w-16 h-16 object-contain bg-white/50 dark:bg-white/10 rounded-lg p-2"
-                        />
-                        <div className="flex-1">
-                          <h3 className="font-bold text-gray-900 dark:text-white">
-                            {item.name}
-                          </h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {item.price} Solari
-                          </p>
-                        </div>
-                        <span
-                          className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            item.status === "available"
-                              ? "bg-green-500/20 text-green-500"
-                              : "bg-gray-500/20 text-gray-500"
-                          }`}
-                        >
-                          {item.status === "available"
-                            ? "Disponible"
-                            : "Vendido"}
-                        </span>
+                  {myItems.length === 0 ? <p className="text-center text-gray-500 py-8">No tienes items publicados</p> : myItems.map(item => (
+                    <div key={item.id} className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-white/10">
+                      <img src={item.imageUrl} alt={item.name} className="w-16 h-16 object-contain bg-white/50 dark:bg-white/10 rounded-lg p-2" />
+                      <div className="flex-1">
+                        <h3 className="font-bold text-gray-900 dark:text-white">{item.name}</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{item.price} Solari</p>
                       </div>
-                    ))
-                  )}
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${item.status === 'available' ? 'bg-green-500/20 text-green-500' : 'bg-gray-500/20 text-gray-500'}`}>{item.status === 'available' ? 'Disponible' : 'Vendido'}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* Sección de Ofertas */}
-            {activeSection === "offers" && (
-              <div className="space-y-4">
-                {offers.length === 0 ? (
-                  <p className="text-center text-gray-500 py-8">
-                    No tienes ofertas recibidas
-                  </p>
-                ) : (
-                  offers.map((offer) => (
-                    <div
-                      key={offer.id}
-                      className="p-4 bg-gray-50 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-white/10"
-                    >
-                      <div className="flex items-start gap-4">
-                        {offer.item && (
-                          <img
-                            src={offer.item.imageUrl}
-                            alt={offer.item.name}
-                            className="w-16 h-16 object-contain bg-white/50 dark:bg-white/10 rounded-lg p-2"
-                          />
-                        )}
-                        <div className="flex-1">
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <h3 className="font-bold text-gray-900 dark:text-white">
-                                {offer.item
-                                  ? offer.item.name
-                                  : "Item eliminado"}
-                              </h3>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">
-                                Por:{" "}
-                                {offer.buyer
-                                  ? offer.buyer.username
-                                  : "Usuario desconocido"}
-                              </p>
-                            </div>
-                            <span
-                              className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                offer.status === "pending"
-                                  ? "bg-orange-500/20 text-orange-500"
-                                  : offer.status === "accepted"
-                                  ? "bg-green-500/20 text-green-500"
-                                  : "bg-red-500/20 text-red-500"
-                              }`}
-                            >
-                              {offer.status === "pending"
-                                ? "Pendiente"
-                                : offer.status === "accepted"
-                                ? "Aceptada"
-                                : "Rechazada"}
-                            </span>
-                          </div>
-
-                          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 mb-2">
-                            <p className="text-primary font-bold text-lg">
-                              {offer.amount} Solari
-                            </p>
-                          </div>
-
-                          {offer.message && (
-                            <div className="bg-white dark:bg-white/5 rounded-lg p-3 mb-3">
-                              <p className="text-sm text-gray-700 dark:text-gray-300">
-                                {offer.message}
-                              </p>
-                            </div>
-                          )}
-
-                          {offer.status === "pending" && (
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleAcceptOffer(offer.id)}
-                                className="flex-1 bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors font-medium"
-                              >
-                                Aceptar
-                              </button>
-                              <button
-                                onClick={() => handleRejectOffer(offer.id)}
-                                className="flex-1 bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-colors font-medium"
-                              >
-                                Rechazar
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {activeSection === 'messages' && (
+            {activeSection === 'conversations' && (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="col-span-1 bg-white dark:bg-[#111e22] rounded-lg p-4 border border-gray-200 dark:border-white/10">
                     <h4 className="font-bold mb-3">Conversaciones</h4>
-                    {conversations.length === 0 ? (
-                      <p className="text-sm text-gray-500">No hay mensajes</p>
-                    ) : (
-                      conversations.map((c, idx) => (
-                        <div key={idx} onClick={() => openConversation(c.user)} className="p-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gray-100" style={{backgroundImage: `url('${c.user?.avatar}')`, backgroundSize: 'cover'}}></div>
-                            <div>
-                              <div className="font-medium">{c.user?.username || 'Usuario'}</div>
-                              <div className="text-xs text-gray-500">{c.lastMessage ? c.lastMessage.content : ''}</div>
-                            </div>
+                    {conversations.length === 0 ? <p className="text-sm text-gray-500">No hay conversaciones</p> : conversations.map((c, idx) => (
+                      <div key={idx} onClick={() => openConversation(c.user)} className="p-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gray-100" style={{backgroundImage: `url('${c.user?.avatar}')`, backgroundSize: 'cover'}}></div>
+                          <div>
+                            <div className="font-medium">{c.user?.username || 'Usuario'}</div>
+                            <div className="text-xs text-gray-500">{c.lastMessage ? (c.lastMessage.type === 'offer' ? `Oferta: ${c.lastMessage.amount || ''}` : c.lastMessage.content) : ''}</div>
                           </div>
                         </div>
-                      ))
-                    )}
+                      </div>
+                    ))}
                   </div>
                   <div className="col-span-2 bg-white dark:bg-[#111e22] rounded-lg p-4 border border-gray-200 dark:border-white/10">
                     {selectedConversationUser ? (
@@ -1588,9 +1264,9 @@ const UserProfile = ({ user, onClose }) => {
                         <h4 className="font-bold mb-3">Conversación con {selectedConversationUser.username}</h4>
                         <div className="space-y-2 max-h-96 overflow-auto mb-4">
                           {conversationMessages.map((m, i) => (
-                            <div key={i} className={`p-3 rounded-lg ${m.from && m.from.username === user.username ? 'bg-primary/10 self-end' : 'bg-gray-100 dark:bg-white/5'}`}>
-                              <div className="text-sm">{m.content}</div>
-                              <div className="text-xs text-gray-400 mt-1">{new Date(m.timestamp).toLocaleString()}</div>
+                            <div key={i} className={`p-3 rounded-lg ${ (m.from && m.from.username === user.username) || (m.from && m.from.id === user.id) ? 'bg-primary/10 self-end' : 'bg-gray-100 dark:bg-white/5'}`}>
+                              <div className="text-sm">{m.content || m.message || (m.type === 'offer' ? `Oferta: ${m.amount}` : '')}</div>
+                              <div className="text-xs text-gray-400 mt-1">{new Date(m.createdAt || m.timestamp || m.updatedAt || Date.now()).toLocaleString()}</div>
                             </div>
                           ))}
                         </div>
