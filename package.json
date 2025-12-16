@@ -5,8 +5,10 @@
   "main": "server.js",
   "scripts": {
     "build": "webpack --mode production",
-    "dev": "webpack serve --mode development",
-    "server": "node server.js"
+    "dev": "node scripts/start-frontend.js",
+    "dev:foreground": "webpack serve --mode development",
+    "server": "node scripts/start-backend.js",
+    "server:foreground": "node server.js"
   },
   "keywords": [
     "dune",

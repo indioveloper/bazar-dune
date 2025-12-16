@@ -1077,7 +1077,7 @@ const ItemDetail = ({ item, user }) => {
 };
 
 // Componente de Perfil de Usuario
-const UserProfile = ({ user, onClose }) => {
+const UserProfile = ({ user, onClose, onItemsChanged }) => {
   const [activeSection, setActiveSection] = useState("items");
   const [myItems, setMyItems] = useState([]);
   const [stats, setStats] = useState(null);
@@ -1197,6 +1197,9 @@ const UserProfile = ({ user, onClose }) => {
     try {
       await fetchAPI(`/items/${itemId}`, { method: 'DELETE' });
       await loadData();
+      if (typeof onItemsChanged === 'function') {
+        onItemsChanged();
+      }
     } catch (err) {
       alert('Error eliminando artículo: ' + err.message);
     }
@@ -1248,7 +1251,7 @@ const UserProfile = ({ user, onClose }) => {
                 {stats && (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="bg-primary/10 border border-primary/20 rounded-lg p-4"><p className="text-sm text-gray-600 dark:text-gray-400">Total Items</p><p className="text-2xl font-bold text-primary">{stats.totalItems}</p></div>
-                    <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4"><p className="text-sm text-gray-600 dark:text-gray-400">Activos</p><p className="text-2xl font-bold text-green-500">{stats.activeItems}</p></div>
+                    <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4"><p className="text-sm text-gray-600 dark:text-gray-400">En venta</p><p className="text-2xl font-bold text-green-500">{stats.activeItems}</p></div>
                     <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4"><p className="text-sm text-gray-600 dark:text-gray-400">Vendidos</p><p className="text-2xl font-bold text-blue-500">{stats.soldItems}</p></div>
                     <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4"><p className="text-sm text-gray-600 dark:text-gray-400">Ofertas Pendientes</p><p className="text-2xl font-bold text-orange-500">{stats.pendingOffers}</p></div>
                   </div>
@@ -1723,7 +1726,7 @@ const App = () => {
       )}
 
       {showProfile && user && (
-        <UserProfile user={user} onClose={() => setShowProfile(false)} />
+        <UserProfile user={user} onClose={() => setShowProfile(false)} onItemsChanged={loadItems} />
       )}
     </div>
   );

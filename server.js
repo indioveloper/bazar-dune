@@ -377,7 +377,7 @@ app.get("/api/items/:id", async (req, res) => {
       req.params.id
     );
 
-    if (!item) {
+    if (!item || item.status === 'deleted') {
       return res.status(404).json({ error: "Artículo no encontrado" });
     }
 
@@ -794,20 +794,35 @@ app.get("/api/sales-stats", authMiddleware, async (req, res) => {
     let items = await readSheet(SHEETS.ITEMS);
     const offers = await readSheet(SHEETS.OFFERS);
 
-    // Items del usuario
-    const myItems = items.filter((item) => item.sellerId === req.user.id);
+    // Items del usuario (excluye eliminados)
+    const myItems = items.filter(
+      (item) => item.sellerId === req.user.id && item.status !== 'deleted'
+    );
 
     // Ofertas relacionadas con mis items
     const myOffers = offers.filter((offer) => offer.sellerId === req.user.id);
 
+    // Semántica de contadores en perfil:
+    // - totalItems: todos mis items no eliminados
+    // - activeItems ("En venta"): items disponibles SIN ofertas pendientes
+    // - pendingOffers ("Ofertas pendientes"): items disponibles CON al menos una oferta pendiente
+    // - soldItems: items vendidos
+    const pendingOfferItemIds = new Set(
+      myOffers
+        .filter((offer) => offer.status === 'pending')
+        .map((offer) => offer.itemId)
+        .filter(Boolean)
+    );
+
+    const availableItems = myItems.filter((item) => item.status === 'available');
+    const soldItems = myItems.filter((item) => item.status === 'sold');
+
     const stats = {
       totalItems: myItems.length,
-      activeItems: myItems.filter((item) => item.status === "available").length,
-      soldItems: myItems.filter((item) => item.status === "sold").length,
-      pendingOffers: myOffers.filter((offer) => offer.status === "pending")
-        .length,
-      acceptedOffers: myOffers.filter((offer) => offer.status === "accepted")
-        .length,
+      activeItems: availableItems.filter((item) => !pendingOfferItemIds.has(item.id)).length,
+      soldItems: soldItems.length,
+      pendingOffers: availableItems.filter((item) => pendingOfferItemIds.has(item.id)).length,
+      acceptedOffers: myOffers.filter((offer) => offer.status === "accepted").length,
     };
 
     res.json(stats);
@@ -848,9 +863,12 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Internal Server Error' });
 });
 
-// ================= INICIO DEL SERVIDOR (dev) =================
+// ================= INICIO DEL SERVIDOR =================
 
-if (process.env.NODE_ENV === "development") {
+// Si se ejecuta directamente (node server.js), levantar el server.
+// En entornos serverless (p.ej. Vercel) normalmente se importa el módulo,
+// así que NO se debe llamar a listen().
+if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
     console.log(`📊 Usando Google Sheets como base de datos`);
