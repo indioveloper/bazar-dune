@@ -15,6 +15,12 @@ app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
+// Simple request logger for /api routes to help debug frontend/backend mismatch
+app.use('/api', (req, res, next) => {
+  console.log(`API REQUEST -> ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 // ==================== CONFIGURACIÓN GOOGLE SHEETS ====================
 
 // Configurar autenticación con Google Sheets
@@ -773,8 +779,8 @@ app.get("/api/my-items", authMiddleware, async (req, res) => {
   try {
     let items = await readSheet(SHEETS.ITEMS);
 
-    // Filtrar items del usuario actual
-    items = items.filter((item) => item.sellerId === req.user.id);
+    // Filtrar items del usuario actual y que no estén eliminados
+    items = items.filter((item) => item.sellerId === req.user.id && item.status !== 'deleted');
 
     res.json({ items, count: items.length });
   } catch (error) {
@@ -807,6 +813,26 @@ app.get("/api/sales-stats", authMiddleware, async (req, res) => {
     res.json(stats);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Eliminar un artículo (propietario) -> marcar como deleted
+app.delete('/api/items/:id', authMiddleware, async (req, res) => {
+  try {
+    const { data: item, index: itemIndex } = await findRowByField(SHEETS.ITEMS, 'id', req.params.id);
+    if (!item) return res.status(404).json({ error: 'Artículo no encontrado' });
+    if (item.sellerId !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+
+    // Marcar como eliminado para mantener integridad de la hoja
+    item.status = 'deleted';
+    console.log('🟠 Eliminando item:', item);
+    console.log('🟠 Índice de fila en hoja:', itemIndex);
+    await updateRow(SHEETS.ITEMS, itemIndex, Object.values(item));
+    console.log('🟢 Fila actualizada en Google Sheets:', Object.values(item));
+
+    res.json({ message: 'Artículo eliminado' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

@@ -2,7 +2,7 @@ import React from "react";
 import { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 
-const API_URL = AppConfig.API_BASE_URL || "http://localhost:5000/api";
+const API_URL = AppConfig.API_BASE_URL || "http://localhost:8000/api";
 console.log(API_URL);
 
 const getToken = () => localStorage.getItem("token");
@@ -23,7 +23,9 @@ const fetchAPI = async (endpoint, options = {}) => {
     ...options.headers,
   };
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
+  const fullUrl = `${API_URL}${endpoint}`;
+  console.log('API request ->', (options && options.method) || 'GET', fullUrl);
+  const response = await fetch(fullUrl, {
     ...options,
     headers,
   });
@@ -43,7 +45,9 @@ const fetchAPI = async (endpoint, options = {}) => {
   }
 
   if (!response.ok) {
-    throw new Error(data.error || "Error en la petición");
+    const errBody = data && data.error ? JSON.stringify(data) : null;
+    console.error('API error', response.status, response.statusText, errBody || '(non-json)');
+    throw new Error((data && data.error) || `Request failed: ${response.status} ${response.statusText}`);
   }
 
   return data;
@@ -897,7 +901,8 @@ const ItemCard = ({ item, isSelected, onClick }) => (
     <img
       alt={item.name}
       className="size-10 object-contain p-1 bg-white/50 dark:bg-white/10 rounded-md"
-      src={item.imageUrl}
+      src={item.imageUrl || '/uploads/default-avatar.png'}
+      onError={(e) => { e.target.onerror = null; e.target.src = '/uploads/default-avatar.png'; }}
     />
     <div className="flex-1">
       <p className="text-gray-900 dark:text-white text-c font-medium leading-normal">
@@ -1017,7 +1022,7 @@ const ItemDetail = ({ item, user }) => {
             <div>
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Vendedor</p>
               <div className="flex items-center gap-2 mt-1">
-                <div className="size-8 rounded-full bg-cover bg-center" style={{ backgroundImage: `url('${item.seller.avatar}')` }}></div>
+                <img src={item.seller?.avatar || '/uploads/default-avatar.png'} onError={(e) => { e.target.onerror=null; e.target.src='/uploads/default-avatar.png'; }} alt={item.seller?.username || 'avatar'} className="size-8 rounded-full bg-cover bg-center" />
                 <div>
                   <p className="text-base font-medium text-gray-800 dark:text-gray-200">{item.seller.username}</p>
                   {item.server && <p className="text-xs text-gray-500 dark:text-gray-400">Servidor: {item.server}</p>}
@@ -1273,7 +1278,7 @@ const UserProfile = ({ user, onClose }) => {
                     {conversations.length === 0 ? <p className="text-sm text-gray-500">No hay conversaciones</p> : conversations.map((c, idx) => (
                       <div key={idx} onClick={() => openConversation(c.user)} className="p-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gray-100" style={{backgroundImage: `url('${c.user?.avatar}')`, backgroundSize: 'cover'}}></div>
+                          <img src={c.user?.avatar || '/uploads/default-avatar.png'} onError={(e) => { e.target.onerror=null; e.target.src='/uploads/default-avatar.png'; }} alt={c.user?.username || 'avatar'} className="w-10 h-10 rounded-full bg-gray-100 object-cover" />
                           <div>
                             <div className="font-medium">{c.user?.username || 'Usuario'}</div>
                             <div className="text-xs text-gray-500">{c.lastMessage ? (c.lastMessage.type === 'offer' ? `Oferta: ${c.lastMessage.amount || ''}` : c.lastMessage.content) : ''}</div>
