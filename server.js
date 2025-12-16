@@ -144,6 +144,40 @@ function generateId() {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
 }
 
+function looksLikeIsoDate(value) {
+  return (
+    typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)
+  );
+}
+
+function normalizeUserRegionServer(user) {
+  const rawRegion = (user?.region || "").trim();
+  const rawServer = (user?.server || "").trim();
+  const rawSolari = (user?.solari || "").trim();
+
+  let region = rawRegion;
+  let server = rawServer;
+
+  const solariLooksNumeric = rawSolari !== "" && !Number.isNaN(Number(rawSolari));
+  const solariLooksServer = rawSolari && !solariLooksNumeric && !looksLikeIsoDate(rawSolari);
+
+  // Datos corruptos por desalineación histórica: el campo `server` terminó guardando `createdAt`
+  // y el campo `solari` terminó guardando el servidor elegido.
+  if ((looksLikeIsoDate(server) || !server) && solariLooksServer) {
+    server = rawSolari;
+  }
+
+  // Caso común: server/region invertidos (p.ej. server = 'Europe', region = 'Pax').
+  if (REGIONS.includes(server) && region && !REGIONS.includes(region)) {
+    const tmp = region;
+    region = server;
+    server = tmp;
+  }
+
+  return { region, server };
+}
+
 // ==================== MIDDLEWARE DE AUTENTICACIÓN ====================
 
 const authMiddleware = async (req, res, next) => {
@@ -183,10 +217,6 @@ app.post("/api/auth/register", async (req, res) => {
       return res.status(400).json({ error: "Todos los campos son requeridos" });
     }
 
-    if (!username || !email || !password) {
-      return res.status(400).json({ error: "Todos los campos son requeridos" });
-    }
-
     // Verificar si el usuario ya existe
     const users = await readSheet(SHEETS.USERS);
     const existingUser = users.find(
@@ -202,17 +232,18 @@ app.post("/api/auth/register", async (req, res) => {
     const userId = generateId();
 
     // Crear usuario
-        const newUser = [
+    const newUser = [
       userId,
       username,
       email,
       hashedPassword,
       'https://placehold.co/100x100/4F46E5/FFFFFF/png', // avatar
       'seller', // role
-      server,
+      '0', // solari
       region,
+      server,
       new Date().toISOString(),
-        ];
+    ];
 
     await appendRow(SHEETS.USERS, newUser);
 
@@ -264,6 +295,8 @@ app.post("/api/auth/login", async (req, res) => {
       expiresIn: "7d",
     });
 
+    const normalized = normalizeUserRegionServer(user);
+
     res.json({
       message: "Login exitoso",
       token,
@@ -273,8 +306,8 @@ app.post("/api/auth/login", async (req, res) => {
         email: user.email,
         avatar: user.avatar,
         role: user.role,
-        server: user.server,
-        region: user.region,
+        server: normalized.server,
+        region: normalized.region,
       },
     });
   } catch (error) {
@@ -284,6 +317,7 @@ app.post("/api/auth/login", async (req, res) => {
 
 // Perfil del usuario
 app.get("/api/auth/me", authMiddleware, async (req, res) => {
+    const normalized = normalizeUserRegionServer(req.user);
     res.json({
       user: {
         id: req.user.id,
@@ -291,8 +325,8 @@ app.get("/api/auth/me", authMiddleware, async (req, res) => {
         email: req.user.email,
         avatar: req.user.avatar,
         role: req.user.role,
-        server: req.user.server,
-        region: req.user.region,
+        server: normalized.server,
+        region: normalized.region,
       },
     });
 });
@@ -348,15 +382,38 @@ app.get("/api/items", async (req, res) => {
     const users = await readSheet(SHEETS.USERS);
     const itemsWithSeller = items.map((item) => {
       const seller = users.find((u) => u.id === item.sellerId);
+
+      const sellerNormalized = seller ? normalizeUserRegionServer(seller) : { region: "", server: "" };
+
+      // Normalización defensiva: si por alguna razón 'server' o 'region' vienen desplazados
+      // (p.ej. contienen un timestamp ISO), usamos los datos del vendedor.
+      const server =
+        !item.server || looksLikeIsoDate(item.server)
+          ? sellerNormalized.server || item.server
+          : item.server;
+      const region =
+        !item.region || looksLikeIsoDate(item.region)
+          ? sellerNormalized.region || item.region
+          : item.region;
+      const createdAt =
+        item.createdAt ||
+        (looksLikeIsoDate(item.server) ? item.server : "") ||
+        (looksLikeIsoDate(item.region) ? item.region : "");
+
       return {
         ...item,
         price: parseInt(item.price),
         tier: parseInt(item.tier),
         stock: parseInt(item.stock),
+        server,
+        region,
+        createdAt,
         seller: seller
           ? {
               username: seller.username,
               avatar: seller.avatar,
+              server: sellerNormalized.server,
+              region: sellerNormalized.region,
             }
           : null,
       };
@@ -388,17 +445,37 @@ app.get("/api/items/:id", async (req, res) => {
       item.sellerId
     );
 
+    const sellerNormalized = seller ? normalizeUserRegionServer(seller) : { region: "", server: "" };
+
+    const server =
+      !item.server || looksLikeIsoDate(item.server)
+        ? sellerNormalized.server || item.server
+        : item.server;
+    const region =
+      !item.region || looksLikeIsoDate(item.region)
+        ? sellerNormalized.region || item.region
+        : item.region;
+    const createdAt =
+      item.createdAt ||
+      (looksLikeIsoDate(item.server) ? item.server : "") ||
+      (looksLikeIsoDate(item.region) ? item.region : "");
+
     res.json({
       item: {
         ...item,
         price: parseInt(item.price),
         tier: parseInt(item.tier),
         stock: parseInt(item.stock),
+        server,
+        region,
+        createdAt,
         seller: seller
           ? {
               username: seller.username,
               avatar: seller.avatar,
               email: seller.email,
+              server: sellerNormalized.server,
+              region: sellerNormalized.region,
             }
           : null,
       },
