@@ -237,13 +237,28 @@ bazar-dune/
 
 ## Solución de Problemas
 
-### Error: "Cannot find module 'credentials.json'"
+### Error: "ENOENT: no such file or directory, open '/app/credentials.json'"
+
+Este error ocurre cuando la aplicación está en **producción** (Railway) pero **no tiene configurada** la variable `GCP_CREDENTIALS_JSON`.
+
+**Solución:**
+1. Ve al dashboard de Railway → **Variables**
+2. Asegúrate de que existe la variable `GCP_CREDENTIALS_JSON`
+3. Su valor debe ser el contenido completo de tu archivo `credentials.json` en **una sola línea**
+4. Verifica que `NODE_ENV=production` esté configurado
+5. Redeploy la aplicación
+
+**Cómo obtener el valor correcto:**
+```bash
+# En tu terminal local, ejecuta:
+cat credentials.json | jq -c
+# Copia la salida completa y úsala como valor de GCP_CREDENTIALS_JSON
+```
+
+### Error: "Cannot find module 'credentials.json'" (Desarrollo)
 
 **Desarrollo local:**
 Asegúrate de tener el archivo `credentials.json` en la raíz del proyecto.
-
-**Producción en Railway:**
-Verifica que la variable `GCP_CREDENTIALS_JSON` esté configurada correctamente en las variables de entorno.
 
 ### Error: "SPREADSHEET_ID not found"
 
