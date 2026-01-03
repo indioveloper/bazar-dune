@@ -736,11 +736,15 @@ const CreateItemPage = ({ user, onClose, onItemCreated }) => {
 };
 
 const SandConverter = () => {
+  const [view, setView] = useState("calculator"); // "calculator" o "totals"
   const [volume, setVolume] = useState("");
   const [sand, setSand] = useState(0);
   const [melange, setMelange] = useState(0);
   const [residue, setResidue] = useState(0);
   const [persons, setPersons] = useState(1);
+  const [playerNames, setPlayerNames] = useState([""]);
+  const [instance, setInstance] = useState(null); // null, 1, 2, o 3
+  const [farmHistory, setFarmHistory] = useState([]); // Historial de farmeos
 
   const calculate = (volumeValue, numPersons) => {
     const vol = parseFloat(volumeValue) || 0;
@@ -762,19 +766,154 @@ const SandConverter = () => {
   };
 
   const handlePersonsChange = (e) => {
-    const value = e.target.value;
+    const value = parseInt(e.target.value) || 1;
     setPersons(value);
     calculate(volume, value);
+
+    // Ajustar array de nombres
+    const newNames = [...playerNames];
+    while (newNames.length < value) {
+      newNames.push("");
+    }
+    while (newNames.length > value) {
+      newNames.pop();
+    }
+    setPlayerNames(newNames);
   };
 
-  const fillExample = () => {
-    setVolume("11250");
-    calculate("11250", persons);
+  const handlePlayerNameChange = (index, name) => {
+    const newNames = [...playerNames];
+    newNames[index] = name;
+    setPlayerNames(newNames);
   };
+
+  const handleNewFarm = () => {
+    if (!volume || sand === 0) {
+      alert("Introduce un volumen válido antes de guardar");
+      return;
+    }
+
+    const farmData = {
+      id: Date.now(),
+      volume: parseFloat(volume),
+      sand,
+      melange,
+      residue,
+      persons,
+      players: playerNames.filter(n => n.trim() !== ""),
+      instance: instance || "sin instancia",
+      timestamp: new Date().toISOString()
+    };
+
+    setFarmHistory([...farmHistory, farmData]);
+
+    // Reset del formulario
+    setVolume("");
+    setSand(0);
+    setMelange(0);
+    setResidue(0);
+    setPlayerNames(Array(persons).fill(""));
+    setInstance(null);
+  };
+
+  // Calcular totales por jugador e instancia
+  const calculateTotals = () => {
+    const totals = {};
+
+    farmHistory.forEach(farm => {
+      const instanceKey = farm.instance;
+
+      if (!totals[instanceKey]) {
+        totals[instanceKey] = {};
+      }
+
+      const playersInFarm = farm.players.length > 0 ? farm.players : ["Sin nombre"];
+      const melangePerPlayer = Math.floor(farm.melange / farm.persons);
+      const residuePerPlayer = Math.floor(farm.residue / farm.persons);
+
+      playersInFarm.forEach(player => {
+        const playerName = player || "Sin nombre";
+        if (!totals[instanceKey][playerName]) {
+          totals[instanceKey][playerName] = { melange: 0, residue: 0 };
+        }
+        totals[instanceKey][playerName].melange += melangePerPlayer;
+        totals[instanceKey][playerName].residue += residuePerPlayer;
+      });
+    });
+
+    return totals;
+  };
+
+  const totals = calculateTotals();
+
+  if (view === "totals") {
+    return (
+      <div className="bg-white dark:bg-[#111e22] rounded-lg p-6 border border-gray-200 dark:border-white/10">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+            Totales por Jugador e Instancia
+          </h3>
+          <button
+            onClick={() => setView("calculator")}
+            className="px-4 py-2 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg transition-colors"
+          >
+            Volver al Conversor
+          </button>
+        </div>
+
+        {farmHistory.length === 0 ? (
+          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+            <p>No hay farmeos registrados aún.</p>
+            <p className="text-sm mt-2">Usa el conversor para registrar tus farmeos.</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {Object.entries(totals).map(([instanceKey, players]) => (
+              <div key={instanceKey} className="border border-gray-200 dark:border-white/10 rounded-lg p-4">
+                <h4 className="font-bold text-lg text-gray-900 dark:text-white mb-3 capitalize">
+                  {instanceKey === "sin instancia" ? "Sin Instancia Especificada" : `Instancia ${instanceKey}`}
+                </h4>
+                <div className="space-y-2">
+                  {Object.entries(players).map(([playerName, stats]) => (
+                    <div key={playerName} className="bg-gray-50 dark:bg-white/5 rounded-lg p-3">
+                      <div className="font-medium text-gray-900 dark:text-white mb-2">
+                        {playerName}
+                      </div>
+                      <div className="flex gap-4 text-sm">
+                        <span className="text-orange-500">
+                          Melange: <strong>{stats.melange}</strong>
+                        </span>
+                        <span className="text-purple-500">
+                          Residuo: <strong>{stats.residue}</strong>
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {farmHistory.length > 0 && (
+          <button
+            onClick={() => {
+              if (confirm("¿Borrar todo el historial de farmeos?")) {
+                setFarmHistory([]);
+              }
+            }}
+            className="mt-4 w-full px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 font-medium rounded-lg transition-colors border border-red-500/20"
+          >
+            Borrar Historial
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white dark:bg-[#111e22] rounded-lg p-6 border border-gray-200 dark:border-white/10">
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-6">
         <img
           src="https://i.postimg.cc/pd3WBMzQ/ai-generated-image-1765363275610.png"
           alt="Conversión de arena"
@@ -785,7 +924,8 @@ const SandConverter = () => {
         </h3>
       </div>
 
-      <div className="max-w-md mx-auto space-y-4">
+      <div className="max-w-2xl mx-auto space-y-6">
+        {/* Volumen de Arena */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Volumen de Arena
@@ -800,46 +940,91 @@ const SandConverter = () => {
           />
         </div>
 
+        {/* Número de Personas */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Número de Personas
           </label>
-          <div className="flex items-center gap-3">
-            <input
-              type="number"
-              value={persons}
-              onChange={handlePersonsChange}
-              placeholder="1"
-              className="w-24 px-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-2xl font-bold text-center focus:border-primary focus:outline-none"
-              min="1"
-            />
-            <span className="text-3xl font-bold text-gray-900 dark:text-white">
-              {persons}
-            </span>
-          </div>
+          <input
+            type="number"
+            value={persons}
+            onChange={handlePersonsChange}
+            placeholder="1"
+            className="w-32 px-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-2xl font-bold text-center focus:border-primary focus:outline-none"
+            min="1"
+          />
         </div>
 
+        {/* Nombres de Jugadores */}
+        {persons > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Nombres de Jugadores (opcional)
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {playerNames.map((name, index) => (
+                <input
+                  key={index}
+                  type="text"
+                  value={name}
+                  onChange={(e) => handlePlayerNameChange(index, e.target.value)}
+                  placeholder={`Jugador ${index + 1}`}
+                  className="px-3 py-2 bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-lg text-gray-900 dark:text-white focus:border-primary focus:outline-none"
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Selector de Instancia */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Instancia
+          </label>
+          <div className="flex gap-2">
+            {[1, 2, 3].map(num => (
+              <button
+                key={num}
+                onClick={() => setInstance(num)}
+                className={`flex-1 px-6 py-3 rounded-lg font-bold text-lg transition-all ${
+                  instance === num
+                    ? "bg-primary text-white shadow-lg scale-105"
+                    : "bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10"
+                }`}
+              >
+                {num}
+              </button>
+            ))}
+          </div>
+          {instance === null && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              Sin instancia especificada
+            </p>
+          )}
+        </div>
+
+        {/* Resultados */}
         <div className="space-y-2">
-          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
             <div className="flex items-center justify-between">
-              <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">
+              <span className="text-gray-700 dark:text-gray-300 font-medium">
                 Arena de Especia
               </span>
-              <span className="text-primary text-xl font-bold">{sand}</span>
+              <span className="text-primary text-2xl font-bold">{sand}</span>
             </div>
           </div>
 
-          <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3">
+          <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4">
             <div className="flex items-center justify-between">
-              <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">
+              <span className="text-gray-700 dark:text-gray-300 font-medium">
                 Melange
               </span>
               <div className="text-right">
-                <span className="text-orange-400 text-xl font-bold">
+                <span className="text-orange-400 text-2xl font-bold">
                   {melange}
                 </span>
                 {persons > 1 && melange > 0 && (
-                  <span className="text-orange-400/60 text-xs ml-1">
+                  <span className="text-orange-400/60 text-xs ml-2">
                     ({Math.floor(melange / persons)} por persona)
                   </span>
                 )}
@@ -847,17 +1032,17 @@ const SandConverter = () => {
             </div>
           </div>
 
-          <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3">
+          <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4">
             <div className="flex items-center justify-between">
-              <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">
+              <span className="text-gray-700 dark:text-gray-300 font-medium">
                 Residuo
               </span>
               <div className="text-right">
-                <span className="text-purple-400 text-xl font-bold">
+                <span className="text-purple-400 text-2xl font-bold">
                   {residue}
                 </span>
                 {persons > 1 && residue > 0 && (
-                  <span className="text-purple-400/60 text-xs ml-1">
+                  <span className="text-purple-400/60 text-xs ml-2">
                     ({Math.floor(residue / persons)} por persona)
                   </span>
                 )}
@@ -866,12 +1051,21 @@ const SandConverter = () => {
           </div>
         </div>
 
-        <button
-          onClick={fillExample}
-          className="w-full px-4 py-2 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 border border-gray-300 dark:border-white/10 rounded-lg text-gray-700 dark:text-gray-300 text-sm transition-colors"
-        >
-          Ejemplo: 11250 volumen
-        </button>
+        {/* Botones de Acción */}
+        <div className="flex gap-3">
+          <button
+            onClick={handleNewFarm}
+            className="flex-1 px-6 py-4 bg-primary hover:bg-primary/90 text-white font-bold text-lg rounded-lg transition-colors shadow-lg"
+          >
+            Nuevo Farmeo
+          </button>
+          <button
+            onClick={() => setView("totals")}
+            className="flex-1 px-6 py-4 bg-gray-700 hover:bg-gray-600 text-white font-bold text-lg rounded-lg transition-colors shadow-lg"
+          >
+            Ver Totales ({farmHistory.length})
+          </button>
+        </div>
       </div>
     </div>
   );
