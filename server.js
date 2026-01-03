@@ -27,17 +27,42 @@ app.use('/api', (req, res, next) => {
 // ==================== CONFIGURACIÓN GOOGLE SHEETS ====================
 
 // Configurar autenticación con Google Sheets
-// Leer configuración de las credenciales serializadas si existe (deployment)
 let auth;
+
 if (process.env.GCP_CREDENTIALS_JSON) {
-  auth = new google.auth.GoogleAuth({
-    credentials: JSON.parse(process.env.GCP_CREDENTIALS_JSON),
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-  });
-  // Leer el archivo de credenciales en caso contrario (local dev)
+  // Producción: usar credenciales desde variable de entorno
+  console.log("🔐 Usando credenciales de GCP_CREDENTIALS_JSON");
+  try {
+    auth = new google.auth.GoogleAuth({
+      credentials: JSON.parse(process.env.GCP_CREDENTIALS_JSON),
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    });
+  } catch (error) {
+    console.error("❌ Error al parsear GCP_CREDENTIALS_JSON:", error.message);
+    throw new Error("GCP_CREDENTIALS_JSON inválido. Verifica que sea un JSON válido.");
+  }
+} else if (process.env.NODE_ENV === "production") {
+  // Producción sin credenciales configuradas
+  console.error("❌ ERROR: GCP_CREDENTIALS_JSON no está configurado en producción");
+  throw new Error(
+    "Falta GCP_CREDENTIALS_JSON. Configura esta variable de entorno con las credenciales de Google Cloud."
+  );
 } else {
+  // Desarrollo: usar archivo credentials.json
+  console.log("🔐 Usando credenciales desde credentials.json (desarrollo)");
+  const fs = require("fs");
+  const path = require("path");
+  const credentialsPath = path.join(__dirname, "credentials.json");
+
+  if (!fs.existsSync(credentialsPath)) {
+    console.error("❌ ERROR: credentials.json no encontrado");
+    throw new Error(
+      "Falta el archivo credentials.json en desarrollo. Descárgalo de Google Cloud Console."
+    );
+  }
+
   auth = new google.auth.GoogleAuth({
-    keyFile: "credentials.json", // Archivo de credenciales de servicio
+    keyFile: credentialsPath,
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
 }
@@ -46,6 +71,11 @@ const sheets = google.sheets({ version: "v4", auth });
 
 // ID de tu Google Spreadsheet (lo obtienes de la URL)
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID || "TU_SPREADSHEET_ID_AQUI";
+
+if (!process.env.SPREADSHEET_ID) {
+  console.warn("⚠️  SPREADSHEET_ID no está configurado, usando valor por defecto");
+}
+
 console.log("✅ Google Sheets API configurada correctamente");
 console.log("📊 Spreadsheet ID:", SPREADSHEET_ID);
 
