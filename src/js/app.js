@@ -785,7 +785,7 @@ const SandConverter = () => {
         </h3>
       </div>
 
-      <div className="space-y-4">
+      <div className="max-w-md mx-auto space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Volumen de Arena
@@ -799,73 +799,72 @@ const SandConverter = () => {
             min="0"
           />
         </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Número de Personas
           </label>
-          <input
-            type="number"
-            value={persons}
-            onChange={handlePersonsChange}
-            placeholder="1"
-            className="w-full px-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-lg focus:border-primary focus:outline-none"
-            min="1"
-          />
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              value={persons}
+              onChange={handlePersonsChange}
+              placeholder="1"
+              className="w-24 px-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-2xl font-bold text-center focus:border-primary focus:outline-none"
+              min="1"
+            />
+            <span className="text-3xl font-bold text-gray-900 dark:text-white">
+              {persons}
+            </span>
+          </div>
         </div>
 
-        <div className="space-y-3">
-          <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+        <div className="space-y-2">
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
             <div className="flex items-center justify-between">
               <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">
-                Arena de Especia (items)
+                Arena de Especia
               </span>
-              <span className="text-primary text-2xl font-bold">{sand}</span>
+              <span className="text-primary text-xl font-bold">{sand}</span>
             </div>
           </div>
 
-          <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4">
+          <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3">
             <div className="flex items-center justify-between">
               <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">
                 Melange
               </span>
-              <span className="text-orange-400 text-2xl font-bold">
-                {melange}
-              </span>
+              <div className="text-right">
+                <span className="text-orange-400 text-xl font-bold">
+                  {melange}
+                </span>
+                {persons > 1 && melange > 0 && (
+                  <span className="text-orange-400/60 text-xs ml-1">
+                    ({Math.floor(melange / persons)} por persona)
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-          <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4">
+
+          <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3">
             <div className="flex items-center justify-between">
               <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">
                 Residuo
               </span>
-              <span className="text-purple-400 text-2xl font-bold">
-                {residue}
-              </span>
+              <div className="text-right">
+                <span className="text-purple-400 text-xl font-bold">
+                  {residue}
+                </span>
+                {persons > 1 && residue > 0 && (
+                  <span className="text-purple-400/60 text-xs ml-1">
+                    ({Math.floor(residue / persons)} por persona)
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
-
-        {persons > 1 && (melange > 0 || residue > 0) && (
-          <div className="bg-gray-100 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-lg p-4">
-            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Por persona ({persons} jugadores):
-            </h4>
-            <div className="space-y-1 text-sm">
-              <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                <span>Melange:</span>
-                <span className="font-bold text-orange-400">
-                  {Math.floor(melange / persons)}
-                </span>
-              </div>
-              <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                <span>Residuo:</span>
-                <span className="font-bold text-purple-400">
-                  {Math.floor(residue / persons)}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
 
         <button
           onClick={fillExample}
@@ -873,18 +872,68 @@ const SandConverter = () => {
         >
           Ejemplo: 11250 volumen
         </button>
-
-        <div className="pt-4 border-t border-gray-200 dark:border-white/10">
-          <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-            Fórmulas:
-          </h4>
-          <div className="text-xs text-gray-400 dark:text-gray-500 space-y-1">
-            <p>• Arena = Volumen × (75000 ÷ 11250)</p>
-            <p>• Melange = Arena × (200 ÷ 10000)</p>
-            <p>• Residuo = Melange × 5</p>
-          </div>
-        </div>
       </div>
+    </div>
+  );
+};
+
+const PlastaniumRefinery = () => {
+  return (
+    <div className="bg-white dark:bg-[#111e22] rounded-lg p-6 border border-gray-200 dark:border-white/10">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-16 h-16 bg-gradient-to-br from-gray-400 to-gray-600 rounded-lg flex items-center justify-center">
+          <span className="material-symbols-outlined text-white text-4xl">
+            science
+          </span>
+        </div>
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+          Refinado de Plastanio
+        </h3>
+      </div>
+
+      <div className="max-w-md mx-auto text-center py-12">
+        <div className="inline-block px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg mb-4">
+          <span className="text-yellow-600 dark:text-yellow-400 font-bold text-sm">
+            🚧 WIP - En Desarrollo
+          </span>
+        </div>
+        <p className="text-gray-600 dark:text-gray-400 text-sm">
+          Esta herramienta estará disponible próximamente.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+const ToolsSection = () => {
+  const [activeTool, setActiveTool] = useState("sand-converter");
+
+  return (
+    <div className="w-full space-y-4">
+      <div className="flex gap-2 border-b border-gray-200 dark:border-white/10">
+        <button
+          onClick={() => setActiveTool("sand-converter")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTool === "sand-converter"
+              ? "border-primary text-primary"
+              : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+          }`}
+        >
+          Conversor de Arena
+        </button>
+        <button
+          onClick={() => setActiveTool("plastanium-refinery")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTool === "plastanium-refinery"
+              ? "border-primary text-primary"
+              : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+          }`}
+        >
+          Refinado de Plastanio
+        </button>
+      </div>
+
+      {activeTool === "sand-converter" ? <SandConverter /> : <PlastaniumRefinery />}
     </div>
   );
 };
@@ -1701,12 +1750,7 @@ const App = () => {
                   )}
                 </React.Fragment>
               ) : (
-                <div className="w-full space-y-6">
-                  <SandConverter />
-                  <div className="bg-white dark:bg-[#111e22] rounded-lg p-6 border border-gray-200 dark:border-white/10 text-center text-gray-500 dark:text-gray-400">
-                    <p className="text-sm">Más herramientas próximamente...</p>
-                  </div>
-                </div>
+                <ToolsSection />
               )}
             </div>
           </div>
