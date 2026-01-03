@@ -4,7 +4,9 @@
   "description": "Backend para el marketplace Bazar Dune (usando Google Sheets)",
   "main": "server.js",
   "scripts": {
+    "start": "node server.js",
     "build": "webpack --mode production",
+    "postinstall": "npm run build",
     "dev": "node scripts/start-frontend.js",
     "dev:foreground": "webpack serve --mode development",
     "server": "node scripts/start-backend.js",
