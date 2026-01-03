@@ -51,7 +51,10 @@ module.exports = {
     }),
     new DefinePlugin({
       AppConfig: JSON.stringify({
-        API_BASE_URL: envVars.API_BASE_URL,
+        // Usar ruta relativa en todos los casos
+        // En desarrollo, webpack-dev-server proxy redirige /api a localhost:8000
+        // En producción, server.js sirve tanto frontend como API
+        API_BASE_URL: '/api',
       }),
     }),
     // Copy static assets
@@ -67,5 +70,12 @@ module.exports = {
     static: path.resolve(__dirname, "public"), // Serve the dist directory
     open: false, // Automatically open the browser
     allowedHosts: ["localhost"],
+    proxy: [
+      {
+        context: ['/api'],
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    ],
   },
 };
