@@ -15,6 +15,9 @@ app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
+// Servir archivos estáticos del frontend (build de webpack)
+app.use(express.static("public"));
+
 // Simple request logger for /api routes to help debug frontend/backend mismatch
 app.use('/api', (req, res, next) => {
   console.log(`API REQUEST -> ${req.method} ${req.originalUrl}`);
@@ -931,6 +934,11 @@ app.delete('/api/items/:id', authMiddleware, async (req, res) => {
 // Fallback para cualquier ruta /api no encontrada -> devolver JSON 404
 app.use('/api/*', (req, res) => {
   res.status(404).json({ error: 'API endpoint not found' });
+});
+
+// Fallback para SPA: todas las rutas no-API devuelven index.html
+app.get('*', (req, res) => {
+  res.sendFile(__dirname + '/public/index.html');
 });
 
 // Manejador de errores global (dev friendly) — siempre devuelve JSON
